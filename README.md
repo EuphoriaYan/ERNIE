@@ -9,20 +9,50 @@ Source code and dataset for "[ERNIE: Enhanced Language Representation with Infor
 * tqdm
 * boto3
 * requests
+* apex (If you want to use fp16, you should make sure the commit is `79ad5a88e91434312b43b4a89d66226be5f2cc98`.)
+
+#### Prepare Pre-train Data
+
+Run the following command to create training instances.
+
+```shell
+  # Download Wikidump
+  wget https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2
+  # Download alise
+  wget -c https://cloud.tsinghua.edu.cn/f/a519318708df4dc8a853/?dl=1 -O alias_entity.txt
+  # WikiExtractor
+  python3 pretrain_data/WikiExtractor.py enwiki-latest-pages-articles.xml.bz2 -o pretrain_data/output -l --min_text_length 100 --filter_disambig_pages -it abbr,b,big --processes 4
+  # Modify anchors with 4 processes
+  python3 pretrain_data/extract.py 4
+  # Preprocess with 4 processes
+  python3 pretrain_data/create_ids.py 4
+  # create instances
+  python3 pretrain_data/create_insts.py 4
+  # merge
+  python3 code/merge.py
+```
+
+Run the following command to pretrain:
+
+```
+  python3 code/run_pretrain.py --do_train --data_dir pretrain_data/merge --bert_model ernie_base --output_dir pretrain_out/ --task_name pretrain --fp16 --max_seq_length 256
+```
 
 ### Pre-trained Model
 
-Download pre-trained knowledge embedding from [Google Drive](https://drive.google.com/open?id=14VNvGMtYWxuqT-PWDa8sD0e7hO486i8Y)/[Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/ebcfdb8975b740d4b60a/) and unzip it.
+Download pre-trained knowledge embedding from [Google Drive](https://drive.google.com/open?id=14VNvGMtYWxuqT-PWDa8sD0e7hO486i8Y)/[Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/ebcfdb8975b740d4b60a/) and extract it.
 
 ```shell
 tar -xvzf kg_embed.tar.gz
 ```
 
-Download pre-trained ERNIE from [Google Drive](https://drive.google.com/open?id=1DVGADbyEgjjpsUlmQaqN6i043SZvHPu5)/[Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/8df2a3a6261e4643a68f/) and unzip it.
+Download pre-trained ERNIE from [Google Drive](https://drive.google.com/open?id=1DVGADbyEgjjpsUlmQaqN6i043SZvHPu5)/[Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/8df2a3a6261e4643a68f/) and extract it.
 
 ```shell
 tar -xvzf ernie_base.tar.gz
 ```
+
+Note that the extraction may be not completed in Windows.
 
 ### Fine-tune
 
@@ -61,9 +91,9 @@ python3 code/eval_figer.py    --do_eval   --do_lower_case   --data_dir data/FIGE
 **OpenEntity:**
 
 ```bash
-python3 code/run_typing.py    --do_train   --do_lower_case   --data_dir data/OpenEntity   --ernie_model ernie_base   --max_seq_length 256   --train_batch_size 32   --learning_rate 2e-5   --num_train_epochs 10.0   --output_dir output_open --threshold 0.3 --fp16 --loss_scale 128
+python3 code/run_typing.py    --do_train   --do_lower_case   --data_dir data/OpenEntity   --ernie_model ernie_base   --max_seq_length 128   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10.0   --output_dir output_open --threshold 0.3 --fp16 --loss_scale 128
 # evaluate
-python3 code/eval_typing.py   --do_eval   --do_lower_case   --data_dir data/OpenEntity   --ernie_model ernie_base   --max_seq_length 256   --train_batch_size 32   --learning_rate 2e-5   --num_train_epochs 10.0   --output_dir output_open --threshold 0.3 --fp16 --loss_scale 128
+python3 code/eval_typing.py   --do_eval   --do_lower_case   --data_dir data/OpenEntity   --ernie_model ernie_base   --max_seq_length 128   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10.0   --output_dir output_open --threshold 0.3 --fp16 --loss_scale 128
 ```
 
 Some code is modified from the **pytorch-pretrained-BERT**. You can find the exlpanations of most parameters in [pytorch-pretrained-BERT](<https://github.com/huggingface/pytorch-pretrained-BERT>). 
